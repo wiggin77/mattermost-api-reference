@@ -41,6 +41,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/AppError"
+    TooManyRequests:
+      description: Too many requests
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/AppError"
     InternalServerError:
       description: Something went wrong with the server
       content:
@@ -746,7 +752,7 @@ components:
           description: The time in milliseconds the command was last updated
           type: integer
           format: int64
-        deleted_at:
+        delete_at:
           description: The time in milliseconds the command was deleted, 0 if never deleted
           type: integer
           format: int64
@@ -785,6 +791,24 @@ components:
           type: string
         url:
           description: The URL that is triggered
+          type: string
+    AutocompleteSuggestion:
+      type: object
+      properties:
+        Complete:
+          description: Completed suggestion
+          type: string
+        Suggestion:
+          description: Predicted text user might want to input
+          type: string
+        Hint:
+          description: Hint about suggested input
+          type: string
+        Description:
+          description: Description of the suggested command
+          type: string
+        IconData:
+          description: Base64 encoded svg image
           type: string
     CommandResponse:
       type: object
@@ -2502,6 +2526,171 @@ components:
         type: array
         items:
           $ref: "#/components/schemas/Reaction"
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        price_per_seat:
+          type: string
+        add_ons:
+          type: array
+          items:
+            $ref: "#/components/schemas/AddOn"
+    AddOn:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        display_name:
+          type: string
+        price_per_seat:
+          type: string
+    PaymentSetupIntent:
+      type: object
+      properties:
+        id:
+          type: string
+        client_secret:
+          type: string
+    PaymentMethod:
+      type: object
+      properties:
+        type:
+          type: string
+        last_four:
+          type: integer
+        exp_month:
+          type: integer
+        exp_year:
+          type: integer
+        card_brand:
+          type: string
+        name:
+          type: string
+    Address:
+      type: object
+      properties:
+        city:
+          type: string
+        country:
+          type: string
+        line1:
+          type: string
+        line2:
+          type: string
+        postal_code:
+          type: string
+        state:
+          type: string
+    CloudCustomer:
+      type: object
+      properties:
+        id:
+          type: string
+        creator_id:
+          type: string
+        create_at:
+          type: integer
+          format: int64
+        email:
+          type: string
+        name:
+          type: string
+        num_employees:
+          type: string
+        contact_first_name:
+          type: string
+        contact_last_name:
+          type: string
+        billing_address:
+          $ref: "#/components/schemas/Address"
+        company_address:
+          $ref: "#/components/schemas/Address"
+        payment_method:
+          $ref: "#/components/schemas/PaymentMethod"
+    Subscription:
+      type: object
+      properties:
+        id:
+          type: string
+        customer_id:
+          type: string
+        product_id:
+          type: string
+        add_ons:
+          type: array
+          items:
+            type: string
+        start_at:
+          type: integer
+          format: int64
+        end_at:
+          type: integer
+          format: int64
+        create_at:
+          type: integer
+          format: int64
+        seats:
+          type: integer
+        dns:
+          type: string
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: string
+        number:
+          type: string
+        create_at:
+          type: integer
+          format: int64
+        total:
+          type: integer
+          format: int64
+        tax:
+          type: integer
+          format: int64
+        status:
+          type: string
+        period_start:
+          type: integer
+          format: int64
+        period_end:
+          type: integer
+          format: int64
+        subscription_id:
+          type: string
+        item:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceLineItem"
+    InvoiceLineItem:
+      type: object
+      properties:
+        price_id:
+          type: string
+        total:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+          format: int64
+        price_per_unit:
+          type: integer
+          format: int64
+        description:
+          type: string
+        metadata:
+          type: array
+          items:
+            type: string
     Group:
       type: object
       properties:
@@ -2649,6 +2838,19 @@ components:
           type: string
         roles:
           $ref: "#/components/schemas/ChannelModeratedRolesPatch"
+    ChannelMemberCountByGroup:
+      description: An object describing group member information in a channel
+      type: object
+      properties:
+        group_id:
+          type: string
+          description: ID of the group
+        channel_member_count:
+          type: number
+          description: Total number of group members in the channel
+        channel_member_timezones_count:
+          type: number
+          description: Total number of unique timezones for the group members in the channel
     LDAPGroupsPaged:
       description: A paged list of LDAP groups
       type: object
@@ -2672,6 +2874,60 @@ components:
           type: string
         name:
           type: string
+    SidebarCategory:
+      description: User's sidebar category
+      type: object
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        team_id:
+          type: string
+        display_name:
+          type: string
+        type:
+          type: string
+          enum:
+            - channels
+            - custom
+            - direct_messages
+            - favorites
+    SidebarCategoryWithChannels:
+      description: User's sidebar category with it's channels
+      type: object
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        team_id:
+          type: string
+        display_name:
+          type: string
+        type:
+          type: string
+          enum:
+            - channels
+            - custom
+            - direct_messages
+            - favorites
+        channel_ids:
+          type: array
+          items:
+            type: string
+    OrderedSidebarCategories:
+      description: List of user's categories with their channels
+      type: object
+      properties:
+        order:
+          type: array
+          items:
+            type: string
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/SidebarCategoryWithChannels"
     Bot:
       description: A bot account
       type: object
@@ -2725,6 +2981,177 @@ components:
         type: array
         items:
           $ref: "#/components/schemas/GroupWithSchemeAdmin"
+
+    OrphanedRecord:
+      description: an object containing information about an orphaned record.
+      type: object
+      properties:
+        parent_id:
+          type: string
+          description: the id of the parent relation (table) entry.
+        child_id:
+          type: string
+          description: the id of the child relation (table) entry.
+    UserThread:
+      description: a thread that user is following
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID of the post that is this thread's root
+        reply_count:
+          type: integer
+          description: number of replies in this thread
+        last_reply_at:
+          type: integer
+          format: int64
+          description: timestamp of the last post to this thread
+        last_viewed_at:
+          type: integer
+          format: int64
+          description: timestamp of the last time the user viewed this thread
+        participants:
+          type: array
+          description: list of users participating in this thread. only includes IDs unless 'extended' was set to 'true'
+          items:
+            $ref: "#/components/schemas/Post"
+        post:
+          $ref: "#/components/schemas/Post"
+    RelationalIntegrityCheckData:
+      description: an object containing the results of a relational integrity check.
+      type: object
+      properties:
+        parent_name:
+          type: string
+          description: the name of the parent relation (table).
+        child_name:
+          type: string
+          description: the name of the child relation (table).
+        parent_id_attr:
+          type: string
+          description: the name of the attribute (column) containing the parent id.
+        child_id_attr:
+          type: string
+          description: the name of the attribute (column) containing the child id.
+        records:
+          description: the list of orphaned records found.
+          type: array
+          items:
+            $ref: "#/components/schemas/OrphanedRecord"
+    IntegrityCheckResult:
+      description: an object with the result of the integrity check.
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/RelationalIntegrityCheckData"
+        err:
+          type: string
+          description: a string value set in case of error.
+    UploadSession:
+      description: an object containing information used to keep track of a file upload.
+      type: object
+      properties:
+        id:
+          description: The unique identifier for the upload.
+          type: string
+        type:
+          description: The type of the upload.
+          type: string
+          enum:
+            - attachment
+            - import
+        create_at:
+          description: The time the upload was created in milliseconds.
+          type: integer
+          format: int64
+        user_id:
+          description: The ID of the user performing the upload.
+          type: string
+        channel_id:
+          description: The ID of the channel to upload to.
+          type: string
+        filename:
+          description: The name of the file to upload.
+          type: string
+        file_size:
+          description: The size of the file to upload in bytes.
+          type: integer
+          format: int64
+        file_offset:
+          description: The amount of data uploaded in bytes.
+          type: integer
+          format: int64
+    Notice:
+      type: object
+      properties:
+        id:
+          description: Notice ID
+          type: string
+        sysAdminOnly:
+          description: Does this notice apply only to sysadmins
+          type: boolean
+        teamAdminOnly:
+          description: Does this notice apply only to team admins
+          type: boolean
+        action:
+          description: "Optional action to perform on action button click. (defaults to closing the notice)"
+          type: string
+        actionParam:
+          description: "Optional action parameter. \nExample: {\"action\": \"url\", actionParam: \"/console/some-page\"}"
+          type: string
+        actionText:
+          description: Optional override for the action button text (defaults to OK)
+          type: string
+        description:
+          description: "Notice content. Use {{Mattermost}} instead of plain text to support white-labeling. Text supports Markdown."
+          type: string
+        image:
+          description: URL of image to display
+          type: string
+        title:
+          description: "Notice title. Use {{Mattermost}} instead of plain text to support white-labeling. Text supports Markdown."
+          type: string
+    SystemStatusResponse:
+      type: object
+      properties:
+        AndroidLatestVersion:
+          description: Latest Android version supported
+          type: string
+        AndroidMinVersion:
+          description: Minimum Android version supported
+          type: string
+        DesktopLatestVersion:
+          description: Latest desktop version supported
+          type: string
+        DesktopMinVersion:
+          description: Minimum desktop version supported
+          type: string
+        IosLatestVersion:
+          description: Latest iOS version supported
+          type: string
+        IosMinVersion:
+          description: Minimum iOS version supported
+          type: string
+        database_status:
+          description: Status of database ("OK" or "UNHEALTHY"). Included when get_server_status parameter set.
+          type: string
+        filestore_status:
+          description: Status of filestore ("OK" or "UNHEALTHY"). Included when get_server_status parameter set.
+          type: string
+        status:
+          description: Status of server ("OK" or "UNHEALTHY"). Included when get_server_status parameter set.
+          type: string
+    UserThreads:
+      type: object
+      properties:
+        total:
+          description: Total number of threads (used for paging)
+          type: integer
+        threads:
+          description: Array of threads
+          type: array
+          items:
+            $ref: "#/components/schemas/UserThread"
 externalDocs:
   description: Find out more about Mattermost
   url: 'https://about.mattermost.com'

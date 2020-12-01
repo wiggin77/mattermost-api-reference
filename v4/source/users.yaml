@@ -39,6 +39,39 @@
           $ref: "#/components/responses/BadRequest"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /users/login/cws:
+    post:
+      tags:
+        - users
+      summary: Auto-Login to Mattermost server using CWS token
+      description: >
+        CWS stands for Customer Web Server which is the cloud service used to
+        manage cloud instances.
+
+        ##### Permissions
+
+        A Cloud license is required
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                login_id:
+                  type: string
+                cws_token:
+                  type: string
+        description: User authentication object
+        required: true
+      responses:
+        "302":
+          description: Login successful, it'll redirect to login page to perform the autologin
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /users/logout:
     post:
       tags:
@@ -137,7 +170,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
 
@@ -224,6 +257,11 @@
             "in_channel" query parameter.
           schema:
             type: string
+        - name: in_group
+          in: query
+          description: The ID of the group to get users for. Must have `manage_system` permission.
+          schema:
+            type: string
         - name: group_constrained
           in: query
           description: When used with `not_in_channel` or `not_in_team`, returns only the
@@ -238,6 +276,23 @@
             `not_in_channel`.
           schema:
             type: boolean
+        - name: active
+          in: query
+          description: Whether or not to list only users that are active. This option
+            cannot be used along with the `inactive` option.
+          schema:
+            type: boolean
+        - name: inactive
+          in: query
+          description: Whether or not to list only users that are deactivated. This option
+            cannot be used along with the `active` option.
+          schema:
+            type: boolean
+        - name: role
+          in: query
+          description: Returns users that have this role.
+          schema:
+            type: string
         - name: sort
           in: query
           description: >
@@ -262,6 +317,42 @@
             __Minimum server version__: 4.7
           schema:
             type: string
+        - name: roles
+          in: query
+          description: >
+            Comma separated string used to filter users based on any of the specified system roles
+
+
+            Example: `?roles=system_admin,system_user` will return users that are either system admins or system users
+
+
+            __Minimum server version__: 5.26
+          schema:
+            type: string
+        - name: channel_roles
+          in: query
+          description: >
+            Comma separated string used to filter users based on any of the specified channel roles, can only be used in conjunction with `in_channel`
+
+
+            Example: `?in_channel=4eb6axxw7fg3je5iyasnfudc5y&channel_roles=channel_user` will return users that are only channel users and not admins or guests
+
+
+            __Minimum server version__: 5.26
+          schema:
+            type: string
+        - name: team_roles
+          in: query
+          description: >
+            Comma separated string used to filter users based on any of the specified team roles, can only be used in conjunction with `in_team`
+
+
+            Example: `?in_team=4eb6axxw7fg3je5iyasnfudc5y&team_roles=team_user` will return users that are only team users and not admins or guests
+
+
+            __Minimum server version__: 5.26
+          schema:
+            type: string
       responses:
         "200":
           description: User page retrieval successful
@@ -280,7 +371,7 @@
       x-code-samples:
         - lang: Go
           source: >
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
@@ -364,6 +455,41 @@
             if ($resp->getStatusCode() == 200) {
                 $users = json_decode($resp->getBody());
             }
+    delete:
+      tags:
+        - users
+      summary: Permanent delete all users
+      description: >
+        Permanently deletes all users and all their related information, including posts.
+
+
+        __Minimum server version__: 5.26.0
+
+
+        __Local mode only__: This endpoint is only available through [local mode](https://docs.mattermost.com/administration/mmctl-cli-tool.html#local-mode).
+      responses:
+        "200":
+          description: Delete request was successful
+      x-code-samples:
+        - lang: Go
+          source: |
+            import (
+                "net"
+                "net/http"
+
+                "github.com/mattermost/mattermost-server/v5/model"
+            )
+
+            tr := &http.Transport{
+                Dial: func(network, addr string) (net.Conn, error) {
+                    return net.Dial("unix", socketPath)
+                },
+            }
+
+            Client := model.NewAPIv4Client("http://_")
+            Client.HttpClient = &http.Client{Transport: tr}
+
+            ok, resp := Client.PermanentDeleteAllUsers()
   /users/ids:
     post:
       tags:
@@ -481,7 +607,7 @@
       x-code-samples:
         - lang: Go
           source: >
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
@@ -553,6 +679,10 @@
                   description: If provided, only search users not in this channel. Must
                     specifiy `team_id` when using this option
                   type: string
+                in_group_id:
+                  description: If provided, only search users in this group. Must
+                    have `manage_system` permission.
+                  type: string
                 group_constrained:
                   description: When used with `not_in_channel_id` or `not_in_team_id`,
                     returns only the users that are allowed to join the channel
@@ -594,7 +724,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -707,7 +837,7 @@
       x-code-samples:
         - lang: Go
           source: >
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
@@ -754,6 +884,38 @@
             if ($resp->getStatusCode() == 200) {
                 $users = json_decode($resp->getBody());
             }
+  /users/known:
+    get:
+      tags:
+        - users
+      summary: Get user IDs of known users
+      description: |
+        Get the list of user IDs of users with any direct relationship with a
+        user. That means any user sharing any channel, including direct and
+        group channels.
+        ##### Permissions
+        Must be authenticated.
+
+        __Minimum server version__: 5.23
+      responses:
+        "200":
+          description: Known users' IDs retrieval successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsersStats"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+      x-code-samples:
+        - lang: Go
+          source: |
+            import "github.com/mattermost/mattermost-server/v5/model"
+
+            Client := model.NewAPIv4Client("https://your-mattermost-url.com")
+            Client.Login("email@domain.com", "Password1")
+
+            userIds, resp := Client.GetKnownUsers()
+
   /users/stats:
     get:
       tags:
@@ -781,7 +943,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -809,6 +971,81 @@
             if ($resp->getStatusCode() == 200) {
                 $stats = json_decode($resp->getBody())->total_users_count;
             }
+  /users/stats/filtered:
+    get:
+      tags:
+        - users
+      summary: Get total count of users in the system matching the specified filters
+      description: |
+        Get a count of users in the system matching the specified filters.
+
+        __Minimum server version__: 5.26
+
+        ##### Permissions
+        Must have `manage_system` permission.
+      parameters:
+        - name: in_team
+          in: query
+          description: The ID of the team to get user stats for.
+          schema:
+            type: string
+        - name: in_channel
+          in: query
+          description: The ID of the channel to get user stats for.
+          schema:
+            type: string
+        - name: include_deleted
+          in: query
+          description: If deleted accounts should be included in the count.
+          schema:
+            type: boolean
+        - name: include_bots
+          in: query
+          description: If bot accounts should be included in the count.
+          schema:
+            type: boolean
+        - name: roles
+          in: query
+          description: >
+            Comma separated string used to filter users based on any of the specified system roles
+
+
+            Example: `?roles=system_admin,system_user` will include users that are either system admins or system users
+          schema:
+            type: string
+        - name: channel_roles
+          in: query
+          description: >
+            Comma separated string used to filter users based on any of the specified channel roles, can only be used in conjunction with `in_channel`
+
+
+            Example: `?in_channel=4eb6axxw7fg3je5iyasnfudc5y&channel_roles=channel_user` will include users that are only channel users and not admins or guests
+          schema:
+            type: string
+        - name: team_roles
+          in: query
+          description: >
+            Comma separated string used to filter users based on any of the specified team roles, can only be used in conjunction with `in_team`
+
+
+            Example: `?in_team=4eb6axxw7fg3je5iyasnfudc5y&team_roles=team_user` will include users that are only team users and not admins or guests
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Filtered User stats retrieval successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsersStats"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   "/users/{user_id}":
     get:
       tags:
@@ -821,7 +1058,7 @@
       parameters:
         - name: user_id
           in: path
-          description: User GUID
+          description: User GUID. This can also be "me" which will point to the current user.
           required: true
           schema:
             type: string
@@ -841,7 +1078,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -939,7 +1176,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -1000,15 +1237,15 @@
             $notifyProps["comment"] = "somethingrandom";
 
             $resp = $driver->getUserModel()->updateUser($userID, [
-                email => $email,
-                username => $username,
-                first_name => $firstName,
-                last_name => $lastName,
-                nickname => $nickname,
-                locale => $locale,
-                position => $position,
-                props => $props,
-                notify_props => $notifyProps,
+                "email" => $email,
+                "username" => $username,
+                "first_name" => $firstName,
+                "last_name" => $lastName,
+                "nickname" => $nickname,
+                "locale" => $locale,
+                "position" => $position,
+                "props" => $props,
+                "notify_props" => $notifyProps,
             ]);
 
             if ($resp->getStatusCode() == 200) {
@@ -1021,6 +1258,9 @@
       description: >
         Deactivates the user and revokes all its sessions by archiving its user
         object.
+
+
+        As of server version 5.28, optionally use the `permanent=true` query parameter to permanently delete the user for compliance reasons. To use this feature `ServiceSettings.EnableAPIUserDeletion` must be set to `true` in the server's configuration.
 
         ##### Permissions
 
@@ -1050,7 +1290,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -1144,7 +1384,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -1196,15 +1436,15 @@
             $notifyProps["comment"] = "somethingrandom";
 
             $resp = $driver->getUserModel()->patchUser($userID, [
-              email => $email,
-              username => $username,
-              first_name => $firstName,
-              last_name => $lastName,
-              nickname => $nickname,
-              locale => $locale,
-              position => $position,
-              props => $props,
-              notify_props => $notifyProps,
+              "email" => $email,
+              "username" => $username,
+              "first_name" => $firstName,
+              "last_name" => $lastName,
+              "nickname" => $nickname,
+              "locale" => $locale,
+              "position" => $position,
+              "props" => $props,
+              "notify_props" => $notifyProps,
             ]);
 
             if ($resp->getStatusCode() == 200) {
@@ -1258,7 +1498,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -1345,7 +1585,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -1411,7 +1651,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -1496,7 +1736,7 @@
               "io/ioutil"
               "log"
 
-              "github.com/mattermost/mattermost-server/model"
+              "github.com/mattermost/mattermost-server/v5/model"
             )
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
@@ -1585,7 +1825,7 @@
       x-code-samples:
         - lang: Go
           source: >
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
@@ -1660,7 +1900,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -1727,7 +1967,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -1803,7 +2043,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -1894,7 +2134,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -1977,7 +2217,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -2050,7 +2290,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -2123,7 +2363,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -2155,6 +2395,51 @@
             if ($resp->getStatusCode() == 200) {
                $ok = json_decode($resp->getBody()->status;
             }
+  "/users/{user_id}/convert_to_bot":
+    post:
+      tags:
+        - bots
+        - users
+      summary: Convert a user into a bot
+      description: |
+        Convert a user into a bot.
+
+        __Minimum server version__: 5.26
+
+        ##### Permissions
+        Must have `manage_system` permission.
+      parameters:
+        - name: user_id
+          in: path
+          description: User GUID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User successfully converted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusOK"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      x-code-samples:
+        - lang: Go
+          source: |
+            import "github.com/mattermost/mattermost-server/v5/model"
+
+            Client := model.NewAPIv4Client("https://your-mattermost-url.com")
+
+            userId := "BbaYBYDV5IDOZFiJGBSzkw1k5u"
+
+            bot, resp := Client.ConvertUserToBot(userId)
   /users/mfa:
     post:
       tags:
@@ -2196,7 +2481,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
 
@@ -2280,7 +2565,7 @@
       x-code-samples:
         - lang: Go
           source: >
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
@@ -2366,7 +2651,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
 
@@ -2436,7 +2721,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -2505,7 +2790,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -2583,7 +2868,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -2656,7 +2941,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -2727,7 +3012,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -2795,7 +3080,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -2827,6 +3112,50 @@
             if ($resp->getStatusCode() == 200) {
                $audits = json_decode($resp->getBody());
             }
+  "/users/{user_id}/email/verify/member":
+    post:
+      tags:
+        - users
+      summary: Verify user email by ID
+      description: |
+        Verify the email used by a user without a token.
+
+        __Minimum server version__: 5.24
+
+        ##### Permissions
+
+        Must have `manage_system` permission.
+      parameters:
+        - name: user_id
+          in: path
+          description: User GUID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User email verification successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      x-code-samples:
+        - lang: Go
+          source: |
+            import "github.com/mattermost/mattermost-server/v5/model"
+
+            Client := model.NewAPIv4Client("https://your-mattermost-url.com")
+            Client.Login("email@domain.com", "Password1")
+
+            userID := "BbaYBYDV5IDOZFiJGBSzkw1k5u
+
+            user, resp := Client.VerifyUserEmailWithoutToken(userID)
   /users/email/verify:
     post:
       tags:
@@ -2860,7 +3189,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
 
@@ -2930,7 +3259,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
 
@@ -3047,7 +3376,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
 
@@ -3154,7 +3483,7 @@
       x-code-samples:
         - lang: Go
           source: >
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
@@ -3244,7 +3573,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -3327,7 +3656,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -3376,7 +3705,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -3451,7 +3780,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -3527,7 +3856,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -3604,7 +3933,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -3680,7 +4009,7 @@
       x-code-samples:
         - lang: Go
           source: >
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
@@ -3764,7 +4093,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -3872,7 +4201,7 @@
       x-code-samples:
         - lang: Go
           source: >
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
@@ -3930,7 +4259,7 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
@@ -3955,7 +4284,6 @@
 
         ##### Permissions
 
-
         Must have `manage_system` permission.
       responses:
         "200":
@@ -3967,9 +4295,565 @@
       x-code-samples:
         - lang: Go
           source: |
-            import "github.com/mattermost/mattermost-server/model"
+            import "github.com/mattermost/mattermost-server/v5/model"
 
             Client := model.NewAPIv4Client("https://your-mattermost-url.com")
             Client.Login("email@domain.com", "Password1")
 
             response, err := Client.RevokeSessionsFromAllUsers()
+
+  "/users/{user_id}/typing":
+    post:
+      tags:
+        - users
+      summary: Publish a user typing websocket event.
+      description: >
+        Notify users in the given channel via websocket that the given user is typing.
+
+        __Minimum server version__: 5.26
+
+        ##### Permissions
+
+        Must have `manage_system` permission to publish for any user other than oneself.
+
+      parameters:
+        - name: user_id
+          in: path
+          description: User GUID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - channel_id
+              properties:
+                channel_id:
+                  description: The id of the channel to which to direct the typing event.
+                  type: string
+                parent_id:
+                  description: The optional id of the root post of the thread to which the user is replying. If unset, the typing event is directed at the entire channel.
+                  type: string
+      responses:
+        '200':
+          description: User typing websocket event accepted for publishing.
+        '400':
+          $ref: "#/components/responses/BadRequest"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '403':
+          $ref: "#/components/responses/Forbidden"
+      x-code-samples:
+        - lang: 'Go'
+          source: |
+            import "github.com/mattermost/mattermost-server/v5/model"
+
+            Client := model.NewAPIv4Client("https://your-mattermost-url.com")
+            Client.Login("email@domain.com", "Password1")
+
+            ok, response := Client.PublishUserTyping(userID, TypingRequest{
+                ChannelId: "channel_id",
+                ParentId: "post_id",
+            })
+
+  "/users/{user_id}/uploads":
+    get:
+      tags:
+        - users
+      summary: Get uploads for a user
+      description: |
+        Gets all the upload sessions belonging to a user.  
+
+        __Minimum server version__: 5.28
+
+        ##### Permissions
+        Must be logged in as the user who created the upload sessions.
+      parameters:
+        - name: user_id
+          in: path
+          description: The ID of the user. This can also be "me" which will point to the current user.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User's uploads retrieval successful
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UploadSession"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      x-code-samples:
+        - lang: Go
+          source: >
+            import "github.com/mattermost/mattermost-server/v5/model"
+
+
+            Client := model.NewAPIv4Client("https://your-mattermost-url.com")
+
+            Client.Login("email@domain.com", "Password1")
+
+            uss, response := Client.GetUploadsForUser("fc6suoon9pbbpmhrb9c967paxe")
+        - lang: Curl
+          source: |
+            curl 'http://localhost:8065/api/v4/users/fc6suoon9pbbpmhrb9c967paxe/uploads' \ 
+            -H 'Authorization: Bearer 9kg8nqrnxprd9jbykqeg4r51hw' \
+
+  /users/migrate_auth/ldap:
+    post:
+      tags:
+        - users
+        - migrate
+        - authentication
+        - LDAP
+      summary: Migrate user accounts authentication type to LDAP.
+      description: >
+        Migrates accounts from one authentication provider to another.
+        For example, you can upgrade your authentication provider from email to LDAP.
+  
+        __Minimum server version__: 5.28
+  
+        ##### Permissions
+  
+        Must have `manage_system` permission.
+  
+      requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - from
+                  - match_field
+                  - force
+                properties:
+                  from:
+                    description: The current authentication type for the matched users.
+                    type: string
+                  match_field:
+                    description: Foreign user field name to match.
+                    type: string
+                  force:
+                    type: boolean
+      responses:
+        '200':
+          description: Successfully migrated authentication type to LDAP.
+        '400':
+          $ref: "#/components/responses/BadRequest"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '403':
+          $ref: "#/components/responses/Forbidden"
+        '501':
+          $ref: "#/components/responses/NotImplemented"
+      x-code-samples:
+        - lang: 'Go'
+          source: |
+            import "github.com/mattermost/mattermost-server/v5/model"
+  
+            Client := model.NewAPIv4Client("https://your-mattermost-url.com")
+            Client.Login("sysadmin@domain.com", "Password1")
+  
+            ok, response := Client.MigrateAuthToLdap(fromAuthService, matchField, force)
+
+  /users/migrate_auth/saml:
+      post:
+        tags:
+          - users
+          - migrate
+          - authentication
+          - SAML
+        summary: Migrate user accounts authentication type to SAML.
+        description: >
+          Migrates accounts from one authentication provider to another.
+          For example, you can upgrade your authentication provider from email to SAML.
+    
+          __Minimum server version__: 5.28
+    
+          ##### Permissions
+    
+          Must have `manage_system` permission.
+    
+        requestBody:
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                    - from
+                    - matches
+                    - auto
+                  properties:
+                    from:
+                      description: The current authentication type for the matched users.
+                      type: string
+                    matches:
+                      description: Users map.
+                      type: object
+                    auto:
+                      type: boolean
+        responses:
+          '200':
+            description: Successfully migrated authentication type to LDAP.
+          '400':
+            $ref: "#/components/responses/BadRequest"
+          '401':
+            $ref: "#/components/responses/Unauthorized"
+          '403':
+            $ref: "#/components/responses/Forbidden"
+          '501':
+            $ref: "#/components/responses/NotImplemented"
+        x-code-samples:
+          - lang: 'Go'
+            source: |
+              import "github.com/mattermost/mattermost-server/v5/model"
+    
+              Client := model.NewAPIv4Client("https://your-mattermost-url.com")
+              Client.Login("sysadmin@domain.com", "Password1")
+    
+              ok, response := Client.MigrateAuthToSaml(fromAuthService, usersMap, auto)
+
+  "/users/{user_id}/threads":
+   get:
+    tags:
+     - threads
+    summary: Get all threads that user is following
+    description: |
+      Get all threads that user is following
+
+      __Minimum server version__: 5.29
+
+      ##### Permissions
+      Must be logged in as the user or have `edit_other_users` permission.
+    parameters:
+      - name: user_id
+        in: path
+        description: The ID of the user. This can also be "me" which will point to the current user.
+        required: true
+        schema:
+         type: string
+      - name: since
+        in: query
+        description: Since filters the threads based on their LastUpdateAt timestamp.
+        required: false
+        schema:
+         type: integer
+      - name: deleted
+        in: query
+        description: Deleted will specify that even deleted threads should be returned (For mobile sync).
+        required: false
+        schema:
+         type: boolean
+         default: false
+      - name: extended
+        in: query
+        description: Extended will enrich the response with participant details.
+        required: false        
+        schema:
+          type: boolean
+          default: false
+      - name: page
+        in: query
+        description: Page specifies which part of the results to return, by PageSize.
+        required: false        
+        schema:
+          type: integer
+          default: 0
+      - name: pageSize
+        in: query
+        description: PageSize specifies the size of the returned chunk of results.
+        required: false
+        schema:
+         default: 30
+         type: integer
+    responses:
+      "200":
+        description: User's thread retrieval successful
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserThreads"
+      "400":
+        $ref: "#/components/responses/BadRequest"
+      "401":
+        $ref: "#/components/responses/Unauthorized"
+      "404":
+        $ref: "#/components/responses/NotFound"
+
+    x-code-samples:
+      - lang: Go
+        source: >
+          import "github.com/mattermost/mattermost-server/v5/model"
+
+          Client := model.NewAPIv4Client("https://your-mattermost-url.com")
+          Client.Login("email@domain.com", "Password1")
+
+          uss, response := Client.GetUserThreads("fc6suoon9pbbpmhrb9c967paxe", model.GetUserThreadsOpts{
+                                                                                      Deleted: true,
+                                                                                      Since: 123123,
+                                                                                      Page: 0,
+                                                                                      PageSize: 40,
+                                                                                      })
+      - lang: Curl
+        source: |
+          curl 'http://localhost:8065/api/v4/users/fc6suoon9pbbpmhrb9c967paxe/threads' \
+          -H 'Authorization: Bearer 9kg8nqrnxprd9jbykqeg4r51hw' \
+  "/users/{user_id}/threads/read/{timestamp}":
+    put:
+      tags:
+        - threads
+      summary: Update all threads that user is following read state to the timestamp
+      description: |
+        Mark all threads that user is following as read
+
+        __Minimum server version__: 5.29
+
+        ##### Permissions
+        Must be logged in as the user or have `edit_other_users` permission.
+      parameters:
+        - name: user_id
+          in: path
+          description: The ID of the user. This can also be "me" which will point to the current user.
+          required: true
+          schema:
+            type: string
+        - name: timestamp
+          in: path
+          description: The timestamp to which the thread's "last read" state will be reset.
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User's thread update successful
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      x-code-samples:
+      - lang: Go
+        source: >
+          import "github.com/mattermost/mattermost-server/v5/model"
+
+
+          Client := model.NewAPIv4Client("https://your-mattermost-url.com")
+
+          Client.Login("email@domain.com", "Password1")
+
+          uss, response := Client.UpdateThreadsReadForUser("fc6suoon9pbbpmhrb9c967paxe", true)
+      - lang: Curl
+        source: |
+          curl -X PUT 'http://localhost:8065/api/v4/users/fc6suoon9pbbpmhrb9c967paxe/threads/read' \
+          -H 'Authorization: Bearer 9kg8nqrnxprd9jbykqeg4r51hw' \
+  "/users/{user_id}/threads/{thread_id}/read/{timestamp}":
+    put:
+      tags:
+        - threads
+      summary: Mark a thread that user is following read state to the timestamp
+      description: |
+        Mark a thread that user is following as read
+
+        __Minimum server version__: 5.29
+
+        ##### Permissions
+        Must be logged in as the user or have `edit_other_users` permission.
+      parameters:
+        - name: user_id
+          in: path
+          description: The ID of the user. This can also be "me" which will point to the current user.
+          required: true
+          schema:
+            type: string
+        - name: thread_id
+          in: path
+          description: The ID of the thread to update
+          required: true
+          schema:
+            type: string
+        - name: timestamp
+          in: path
+          description: The timestamp to which the thread's "last read" state will be reset.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User's thread update successful
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      x-code-samples:
+        - lang: Go
+          source: >
+            import "github.com/mattermost/mattermost-server/v5/model"
+
+
+            Client := model.NewAPIv4Client("https://your-mattermost-url.com")
+
+            Client.Login("email@domain.com", "Password1")
+
+            uss, response := Client.UpdateThreadReadForUser("fc6suoon9pbbpmhrb9c967paxe", "f96cv0897624352346e" true)
+        - lang: Curl
+          source: |
+            curl -X PUT 'http://localhost:8065/api/v4/users/fc6suoon9pbbpmhrb9c967paxe/threads/f96345234975624/read' \
+            -H 'Authorization: Bearer 9kg8nqrnxprd9jbykqeg4r51hw' \
+    delete:
+      tags:
+        - threads
+      summary: Mark a thread that user is following as unread
+      description: |
+        Mark a thread that user is following as unread
+
+        __Minimum server version__: 5.29
+
+        ##### Permissions
+        Must be logged in as the user or have `edit_other_users` permission.
+      parameters:
+        - name: user_id
+          in: path
+          description: The ID of the user. This can also be "me" which will point to the current user.
+          required: true
+          schema:
+            type: string
+        - name: thread_id
+          in: path
+          description: The ID of the thread to update
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User's thread update successful
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      x-code-samples:
+        - lang: Go
+          source: >
+            import "github.com/mattermost/mattermost-server/v5/model"
+
+
+            Client := model.NewAPIv4Client("https://your-mattermost-url.com")
+
+            Client.Login("email@domain.com", "Password1")
+
+            uss, response := Client.UpdateThreadReadForUser("fc6suoon9pbbpmhrb9c967paxe", "f96cv0897624352346e" false)
+        - lang: Curl
+          source: |
+            curl -X DELETE 'http://localhost:8065/api/v4/users/fc6suoon9pbbpmhrb9c967paxe/threads/f96345234975624/read' \
+            -H 'Authorization: Bearer 9kg8nqrnxprd9jbykqeg4r51hw' \
+  "/users/{user_id}/threads/{thread_id}/following":
+    put:
+      tags:
+        - threads
+      summary: Start following a thread
+      description: |
+        Start following a thread
+
+        __Minimum server version__: 5.29
+
+        ##### Permissions
+        Must be logged in as the user or have `edit_other_users` permission.
+      parameters:
+        - name: user_id
+          in: path
+          description: The ID of the user. This can also be "me" which will point to the current user.
+          required: true
+          schema:
+            type: string
+        - name: thread_id
+          in: path
+          description: The ID of the thread to follow
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User's thread update successful
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      x-code-samples:
+        - lang: Go
+          source: >
+            import "github.com/mattermost/mattermost-server/v5/model"
+
+
+            Client := model.NewAPIv4Client("https://your-mattermost-url.com")
+
+            Client.Login("email@domain.com", "Password1")
+
+            uss, response := Client.UpdateThreadFollowForUser("fc6suoon9pbbpmhrb9c967paxe", "f96cv0897624352346e" true)
+        - lang: Curl
+          source: |
+            curl -X PUT 'http://localhost:8065/api/v4/users/fc6suoon9pbbpmhrb9c967paxe/threads/f96345234975624/followin' \
+            -H 'Authorization: Bearer 9kg8nqrnxprd9jbykqeg4r51hw' \
+    delete:
+      tags:
+        - threads
+      summary: Stop following a thread
+      description: |
+        Stop following a thread
+
+        __Minimum server version__: 5.29
+
+        ##### Permissions
+        Must be logged in as the user or have `edit_other_users` permission.
+      parameters:
+        - name: user_id
+          in: path
+          description: The ID of the user. This can also be "me" which will point to the current user.
+          required: true
+          schema:
+            type: string
+        - name: thread_id
+          in: path
+          description: The ID of the thread to update
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User's thread update successful
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      x-code-samples:
+        - lang: Go
+          source: >
+            import "github.com/mattermost/mattermost-server/v5/model"
+
+
+            Client := model.NewAPIv4Client("https://your-mattermost-url.com")
+
+            Client.Login("email@domain.com", "Password1")
+
+            uss, response := Client.UpdateThreadFollowForUser("fc6suoon9pbbpmhrb9c967paxe", "f96cv0897624352346e" false)
+        - lang: Curl
+          source: |
+            curl -X DELETE 'http://localhost:8065/api/v4/users/fc6suoon9pbbpmhrb9c967paxe/threads/f96345234975624/following' \
+            -H 'Authorization: Bearer 9kg8nqrnxprd9jbykqeg4r51hw' \
